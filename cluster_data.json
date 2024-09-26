@@ -1,0 +1,69 @@
+{
+    "bell":{"nodes":{"a":{"devices":["cpu"], "count":480},
+                     "b":{"devices":["cpu"], "count":8},
+                     "g":{"devices":["cpu", "gpu"], "count":8}
+                    },
+            "primary_node":"a", 
+            "database_login_file":"/depot/itap/verburgt/repos/cluster_benchmarking/db_credentials.json", 
+            "benchmarking_apps_path":"/depot/itap/verburgt/repos/cluster_benchmarking/benchmarking_apps", 
+            "slack_token_path": "/depot/itap/verburgt/repos/cluster_benchmarking/tokens/.slack/token", 
+            "health_data_dir":"/depot/itap/verburgt/repos/cluster_benchmarking/cluster_health_data/bell",
+            "working_dir":"/scratch/bell/verburgt/benchmarking_results",
+            "env_dir":"/depot/itap/verburgt/envs/anaconda/cluster_benchmarking",
+            "name_scheme":"old",
+            "account":"testpbs", 
+            "partition":"testpbs",
+            "gpu_required":false
+        },
+
+    "negishi":{"nodes":{"a":{"devices":["cpu"], "count":450},
+                        "b":{"devices":["cpu"], "count":5},
+                        "c":{"devices":["cpu"], "count":15},
+                        "g":{"devices":["cpu", "gpu"], "count":5}
+                    },
+            "primary_node":"a", 
+            "database_login_file":"/depot/itap/verburgt/repos/cluster_benchmarking/db_credentials.json", 
+            "benchmarking_apps_path":"/depot/itap/verburgt/repos/cluster_benchmarking/benchmarking_apps", 
+            "slack_token_path": "/depot/itap/verburgt/repos/cluster_benchmarking/tokens/.slack/token", 
+            "health_data_dir":"/depot/itap/verburgt/repos/cluster_benchmarking/cluster_health_data/negishi",
+            "working_dir":"/scratch/negishi/verburgt/benchmarking_results",
+            "env_dir":"/depot/itap/verburgt/envs/anaconda/cluster_benchmarking",
+            "name_scheme":"new",
+            "account":"testpbs", 
+            "partition":"testpbs",
+            "gpu_required":false
+        },
+
+    "gilbreth":{"nodes":{"g":{"devices":["gpu"], "count":11},
+                         "i":{"devices":["gpu"], "count":4},
+                         "k":{"devices":["gpu"], "count":51}
+                        },
+            "primary_node":"k", 
+            "database_login_file":"/depot/itap/verburgt/repos/cluster_benchmarking/db_credentials.json", 
+            "benchmarking_apps_path":"/depot/itap/verburgt/repos/cluster_benchmarking/benchmarking_apps", 
+            "slack_token_path": "/depot/itap/verburgt/repos/cluster_benchmarking/tokens/.slack/token", 
+            "health_data_dir":"/depot/itap/verburgt/repos/cluster_benchmarking/cluster_health_data/gilbreth",
+            "working_dir":"/scratch/gilbreth/verburgt/benchmarking_results",
+            "env_dir":"/depot/itap/verburgt/envs/anaconda/cluster_benchmarking",
+            "name_scheme":"old",
+            "account":"testpbs", 
+            "partition":"testpbs",
+            "gpu_required":true
+        },
+    "anvil":{"nodes":{"a":{"devices":["cpu"], "count":1000},
+                      "b":{"devices":["cpu"], "count":31},
+                      "g":{"devices":["gpu"], "count":15}
+                    },
+            "primary_node":"a", 
+            "database_login_file":"/home/x-jverburgt/cluster_benchmarking/db_credentials.json", 
+            "benchmarking_apps_path":"/home/x-jverburgt/cluster_benchmarking/benchmarking_apps", 
+            "slack_token_path": "/depot/itap/verburgt/repos/cluster_benchmarking/tokens/.slack/token", 
+            "health_data_dir":"/home/x-jverburgt/cluster_benchmarking/anvil",
+            "working_dir":"/anvil/scratch/x-jverburgt/benchmarking_results",
+            "env_dir":"/home/x-jverburgt/.conda/envs/2024.02-py311/cluster_benchmarking",
+            "name_scheme":"new",
+            "account":"rcac",
+            "partition":"benchmarking",
+            "gpu_required":false
+        }
+}
