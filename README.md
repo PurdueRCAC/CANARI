@@ -45,6 +45,8 @@ CANARI requires several python packages for interfacing with databases and gener
 ```bash
 conda create -n canari python=3.12 --yes
 conda install psycopg2 sqlite pandas matplotlib seaborn requests -n canari --yes
+conda install python-dotenv -c conda-forge -n canari --yes
+conda install statsmodels -n canari --yes
 conda activate canari
 ```
 #### Cluster dependencies
@@ -158,9 +160,9 @@ For regular benchmark logging, we recommend configuring a ```cron``` job on each
 
     If you would like to run on all hosts, you can pass ```--hosts all```, which will submit benchmarking jobs to all online nodes.
 
-* Since STREAM jobs finish very quickly, and subsequent stream jobs are likely to fall on the same node, you can force STREAM jobs to wait on a dummy "flag" job to spread out the node distribution with the ```--flag_job``` option:
+    * Since STREAM jobs finish very quickly, and subsequent stream jobs are likely to fall on the same node, you can force STREAM jobs to wait on a dummy "flag" job to spread out the node distribution with the ```--flag_job``` option:
 
-    ```python canari.py --num_nodes 20 --flag_job```
+        ```python canari.py --num_nodes 20 --flag_job```
 
 ### Collecting Cluster Health Data
 
@@ -191,5 +193,8 @@ Reporting of data is handled by ```report.py```, which reads benchmarking data f
 
     Which will report to slack of there has been a change in availability on more than 2.5% of nodes on the cluster. This will also log health data to ```health_data_dir```. We recommend running this script every hour.
 
+* If a benchmark was ran on an entire cluster (usually during a maintenance), and you'd like to report the perormance foa ll nodes, the following comman may be used:
+
+    ```python report.py --maintenancecheck --log_level=debug --timespan=day --date=2024-10-06 --slack_channel_id XXXXXXXXXXX```
 
 For either ```canari.py``` or ```report.py```, the individual slurm commands being ran can be seen with the ```--log_level=debug``` flag. A full list of options can be seen with ```canari.py -h``` or ```report.py -h``` respectively. 

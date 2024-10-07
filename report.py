@@ -14,6 +14,7 @@ import pandas as pd
 import re
 import tempfile
 import statistics
+import statsmodels.formula.api as smf #type:ignore
 from contextlib import contextmanager
 #Plotting
 import matplotlib.pyplot as plt
@@ -23,13 +24,14 @@ sns.set_style('dark')
 from typing import Union, Optional
 import logging
 
-#Stuff that needs to talk to sentinel
+#Stuff that needs to talk to canari
 from canari import submit_benchmarking_pair, get_cluster_data
 from canari import get_total_nodes
 from canari import get_offline_node_objs
 from canari import log_status
 from canari import get_last_healthcheck
 from canari import get_nodetype_from_host
+from canari import get_all_nodes
 
 
 ###      Global Variables Begin      ###
@@ -225,12 +227,26 @@ def query_database(db_params:dict, query:str) -> pd.DataFrame:
 
 def get_query(cluster:str, application:str, 
               timespan:Optional[str] = "week", 
+              date:Optional[Union[str, datetime]] = None, 
               table:str = "benchmark_results_simple") -> str:
+    
+    #If a specific date was provided, use that as the base start time
+    if date:
+        if isinstance(date, str):
+            try:
+                date = datetime.strptime(date, '%Y-%m-%d') #Ensure that valid string date was given
+            except ValueError as e:
+                logging.error("Datetime strings must be provided in a '%Y-%m-%d' format!")
+                raise e
+        base_time = date
+    else: #Otherwise just use current time
+        base_time = datetime.now()
 
-    assert timespan in ['week', 'month', 'year']
-    time_deltas = {'week': 7,'month': 30,'year': 365}
+    assert timespan in ['week', 'month', 'year', 'day']
+    time_deltas = {'week': 7,'month': 30,'year': 365, 'day':1}
+
     # Calculate end and begin datetimes
-    end_datetime = datetime.now() + timedelta(days=1)
+    end_datetime = base_time + timedelta(days=1)
     begin_datetime = end_datetime - timedelta(days=time_deltas[timespan])
     end_date_str = end_datetime.strftime('%Y-%m-%d')
     begin_date_str = begin_datetime.strftime('%Y-%m-%d')
@@ -362,7 +378,131 @@ def resubmit_node(application, database_login_file, host):
     partition = cluster_data["partition"]
     logging.info(f"Resubmitting {application} on node {host}")
     submit_benchmarking_pair(application, database_login_file = database_login_file, host = host, account = account, partition=partition)
+
+##############################  maintenence report functions #####################################
+
+def run_model(data:pd.DataFrame, alpha:float = 0.05) -> pd.DataFrame:
+    '''Runs an ANOVA based on node-type on data. Returns prediction intervals for each node type
+        
+        data:pd.DataFrame - data with performance and nodetype columns
+        alpha:float Alpha vlaue for calculating prediction and confidence intervals
+        
+        returns: pd.DataFrame - index: node_type
+                                columns: mean mean_se mean_ci_lower mean_ci_upper obs_ci_lower obs_ci_upper                           
+    '''
+
+    model = smf.ols('performance ~ C(nodetype)', data=data).fit()
+
+    unique_node_types = data['nodetype'].unique()
+    predictions = model.get_prediction({'nodetype': unique_node_types})
+
+    summary_frame = predictions.summary_frame(alpha=alpha)
+    summary_frame["nodetype"] = unique_node_types
+    summary_frame = summary_frame.set_index("nodetype")
+    # print(model.summary())
+    # anova_table = anova_lm(model) 
+    return summary_frame
+
+
+def make_maintenence_graph(data:pd.DataFrame, application:str = "STREAM", alpha:float=0.05) -> str:
+    '''Takes a dataframe of performance data and returns the filepath to a performance graph
     
+    data:pd.DataFrame - Pandas datafrmae with performance, node, and nodetype columns
+    application:str - "stream" or "hpl"
+    alpha=0.9 - alpha value for calculating prediction intervals
+    
+    returns str: filepath of generated figure
+    '''
+
+    #Get prediction intervals
+    model_results = run_model(data, alpha=alpha)
+    data["ci_lower"] = data.nodetype.apply(lambda x: model_results.loc[x, "mean_ci_lower"])
+    data["ci_upper"] = data.nodetype.apply(lambda x: model_results.loc[x, "mean_ci_upper"])
+    data["pi_lower"] = data.nodetype.apply(lambda x: model_results.loc[x, "obs_ci_lower"])
+    data["pi_upper"] = data.nodetype.apply(lambda x: model_results.loc[x, "obs_ci_upper"])
+    data["pi_outlier"] = data.apply(lambda x: (x.performance < x.pi_lower) or (x.performance > x.pi_upper), axis=1)
+    
+    fig, ax = plt.subplots(1, 1, figsize=(14, 7))
+    fig.set_tight_layout(True) #type:ignore
+    #Plot the data and prediction intervals
+    sns.lineplot(data = data, x = "node", y = "performance", hue="nodetype", ax = ax)
+    ax.fill_between(data['node'], data['pi_lower'], data['pi_upper'], color='gray', alpha=0.2)#, label = "Prediction Interval")
+
+    #Plot outliers
+    for idx, row in data.loc[data["pi_outlier"]].iterrows():
+        ax.scatter(row["node"], row["performance"], color = "red")
+        ax.annotate(row["node"],(row["node"], row["performance"]))
+
+    #Clean up
+    ax.set_xticks(range(0, len(data.node), 5))
+    ax.set_xticklabels(data.node[::5], rotation=90)
+    ax.set_xlabel("Node", size=14)
+    ax.set_ylabel(f"{application} Performance", size=14)
+    ax.legend()
+
+    filename=f'/tmp/{application}_maintenence.png'
+    #filename=f'{application}_maintenence.png'
+    fig.savefig(filename)
+    return filename
+
+
+def report_maintenance(database_login_file,
+                       slack_channel_id,
+                       token_path,
+                       date:Union[datetime, str] = datetime.now(),
+                       partition:str="testpbs", 
+                       timespan = "day",
+                       debug = False) -> None:
+    
+
+    #Send Base slack message
+    if isinstance(date, str):
+        try:
+            date = datetime.strptime(date, '%Y-%m-%d') #Ensure that valid string date was given
+        except ValueError as e:
+            logging.error("Datetime strings must be provided in a '%Y-%m-%d' format!")
+            raise e
+    response = send_slack_message(f"{cluster.capitalize()} Maintenance Report for {date.strftime('%Y-%m-%d')}",
+                                debug=debug, token_path = token_path, channel_id = slack_channel_id)
+    
+    assert response["ok"]
+    ts = response["ts"]
+    #ts = 1728236369.946879
+    logging.debug(f"ts is {ts}")
+
+    #Get db creds
+    with open(database_login_file, 'r') as file:
+        db_params = json.load(file)["database"]
+    
+    #Get all nodes for this cluster
+    all_nodes = get_all_nodes(partition=partition)
+
+    for application in health_check_apps:
+        #Get all data from most recent date
+        query:str = get_query(cluster=cluster, application = application, date = date, timespan=timespan) #TODO change this to day
+        data:pd.DataFrame = query_database(db_params = db_params,  query = query).sort_values(by="datetime", ascending = True)
+        data = data.drop_duplicates(keep = "first", subset = "node") #Keep only the most recent if there are multiple
+        data = data.sort_values(by="node")
+        application_pngpath = make_maintenence_graph(data, application)
+        graph_file = {'file' : (f"{application}.png", open(application_pngpath, 'rb'), 'image/png')}
+
+        undocumented_nodes:list = list(set(all_nodes) - set(data.node))
+    
+        # Upload image to slack
+        upload_response = upload_slack_file(application_pngpath,
+                                            channel_id = slack_channel_id,
+                                            upload_file = graph_file, 
+                                            ts = ts, 
+                                            token_path = token_path, 
+                                            debug = debug)
+        
+        # Upload undocumented nodes
+        message = f"Undocumented {application} nodes: {' '.join(undocumented_nodes)}"
+        with tempfile.NamedTemporaryFile(mode="w+") as tmp:
+            tmp.write(message)
+            tmp.read()
+            upload_slack_file(tmp.name, ts, debug=debug, 
+                              token_path = token_path, channel_id = slack_channel_id)
 
 ############################################# ARGUMENT PARSING ################################################
 
@@ -375,10 +515,14 @@ def main():
                     choices=['debug', 'info', "warning", "error", "critical"], default = "warning", help='Set the logging level')
     
     #Arguments for cluster_benchmarking reporting
-    parser.add_argument('--benchmark', action="store_true", help='Will resubmit nodes with outlier performance if provided')
+    parser.add_argument('--benchmark', action="store_true", help='Will report the behcnmark reusult for a specified timespan')
     parser.add_argument('--timespan', type=str, 
-                    choices=["week", "month", "year"], default = "week", help='Timespan to report')
+                    choices=["day","week", "month", "year"], default = "week", help='Timespan to report for --benchmark option')
     parser.add_argument('--resubmit', action="store_true", help='Will resubmit nodes with outlier performance if provided')
+
+
+    parser.add_argument('--maintenancecheck', action="store_true", help='Will report benchmark_results for all nodes after a maintenence')
+
 
 
     #Arguments for cluster_health reporting
@@ -411,8 +555,8 @@ def main():
                         datefmt='%Y-%m-%d %H:%M:%S')
 
     #Run
-    if not any([args.healthcheck, args.healthsum, args.benchmark]):
-        raise ValueError("one of healthcheck, healthsum, or benchmark must be set!")
+    if not any([args.healthcheck, args.healthsum, args.benchmark, args.maintainencecheck]):
+        raise ValueError("one of healthcheck, healthsum, or benchmark, or maintainencecheck must be set!")
     
     if args.benchmark:
         report_performance(timespan=args.timespan, 
@@ -422,6 +566,14 @@ def main():
                            database_login_file = database_login_file, 
                            resubmit=args.resubmit,
                            slack_channel_id = args.slack_channel_id)
+    
+    if args.maintenancecheck:
+        report_maintenance(database_login_file = database_login_file, 
+                           slack_channel_id = args.slack_channel_id, 
+                           token_path=token_path, 
+                           timespan=args.timespan,
+                           debug = args.debug)
+
     
     if args.healthcheck:
         healthcheck(critical_percent=args.tolerance, 
