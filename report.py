@@ -465,7 +465,11 @@ def report_maintenance(database_login_file,
     response = send_slack_message(f"{cluster.capitalize()} Maintenance Report for {date.strftime('%Y-%m-%d')}",
                                 debug=debug, token_path = token_path, channel_id = slack_channel_id)
     
-    assert response["ok"]
+    try:
+        assert response["ok"]
+    except AssertionError as e:
+        logging.error("response not okay!")
+        raise e
     ts = response["ts"]
     #ts = 1728236369.946879
     logging.debug(f"ts is {ts}")
@@ -555,8 +559,8 @@ def main():
                         datefmt='%Y-%m-%d %H:%M:%S')
 
     #Run
-    if not any([args.healthcheck, args.healthsum, args.benchmark, args.maintainencecheck]):
-        raise ValueError("one of healthcheck, healthsum, or benchmark, or maintainencecheck must be set!")
+    if not any([args.healthcheck, args.healthsum, args.benchmark, args.maintenancecheck]):
+        raise ValueError("one of healthcheck, healthsum, or benchmark, or maintenancecheck must be set!")
     
     if args.benchmark:
         report_performance(timespan=args.timespan, 
