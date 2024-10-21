@@ -62,8 +62,8 @@
             "working_dir":"/anvil/scratch/x-jverburgt/benchmarking_results",
             "env_dir":"/home/x-jverburgt/.conda/envs/2024.02-py311/cluster_benchmarking",
             "name_scheme":"new",
-            "account":"rcac",
-            "partition":"benchmarking",
+            "account":"asc170016",
+            "partition":"standard",
             "gpu_required":false
         }
 }

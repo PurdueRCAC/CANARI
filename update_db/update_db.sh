@@ -49,7 +49,7 @@ conda init
 # esac
 
 echo "Activating correct conda env"
-conda activate $env_dir
+source activate $env_dir  #Chanfed from conda to source for Anvil
 echo "Python exec is $(which python )"
 
 
