@@ -65,5 +65,21 @@
             "account":"asc170016",
             "partition":"standard",
             "gpu_required":false
+        },
+    "gautschi":{"nodes":{"a":{"devices":["cpu"], "count":337},
+                         "h":{"devices":["cpu"], "count":19},
+                         "g":{"devices":["gpu"], "count":5}
+                        },
+            "primary_node":"a", 
+            "database_login_file":"/depot/itap/verburgt/repos/cluster_benchmarking/db_credentials.json", 
+            "benchmarking_apps_path":"/depot/itap/verburgt/repos/cluster_benchmarking/benchmarking_apps", 
+            "slack_token_path": "/depot/itap/verburgt/repos/cluster_benchmarking/tokens/.slack/token", 
+            "health_data_dir":"/depot/itap/verburgt/repos/cluster_benchmarking/cluster_health_data/negishi",
+            "working_dir":"/scratch/gautschi/verburgt/benchmarking_results",
+            "env_dir":"/depot/itap/verburgt/envs/venv/canari/bin/activate",
+            "name_scheme":"new",
+            "account":"rcac", 
+            "partition":"cpu",
+            "gpu_required":false
         }
 }

@@ -384,6 +384,13 @@ def submit_benchmarking_pair(application:str,
         assert host
         node_type = get_nodetype_from_host(host)
         #node_type = "a"
+    node_constraint = node_type
+
+
+    # # TODO Gautschi does not currently support the node types - Temporarily, unset the node constraint if running there
+    # Node constraints work now
+    # if cluster == "gautschi":
+    #     node_constraint = None
 
     ###################### Submit everything in a flag job if required ###################### 
     if flag_job and application == "stream": 
@@ -398,7 +405,7 @@ def submit_benchmarking_pair(application:str,
                                           outfile = benchmarking_outfile, 
                                           account=account, 
                                           partition=partition, 
-                                          constraint = node_type, 
+                                          constraint = node_constraint, 
                                           return_command = True)
 
         #Get comand for logging the output
@@ -431,9 +438,11 @@ def submit_benchmarking_pair(application:str,
         
     else:  #Submit normally
         ###################### Submit the benchmarking job ###################### 
-        submission_script = get_submission_script(application, device, node_type, benchmarking_apps_path = benchmarking_apps_path)
+        submission_script = get_submission_script(application, device, node_type,
+                                                  benchmarking_apps_path = benchmarking_apps_path)
         benchmarking_outfile = os.path.join(working_dir, f'benchmark_{timestamp}_{cluster}_{application}_{uuid}')
-        benchmarking_jobid = submit_slurm(submission_script, host = host, outfile= benchmarking_outfile, account=account, partition=partition, constraint = node_type)
+        benchmarking_jobid = submit_slurm(submission_script, host = host, outfile= benchmarking_outfile, 
+                                          account=account, partition=partition, constraint = node_constraint)
         logging.debug(f"Benchmarking Job ID is {benchmarking_jobid}. Writing to {benchmarking_outfile}")
 
         ###################### Submit dependent database update script ###################### 

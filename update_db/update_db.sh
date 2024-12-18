@@ -22,9 +22,9 @@ env_dir=${9}
 
 #Turn on correct environment 
 module --force purge
+module load python/3.11
 module load anaconda
 conda init
-
 # case $RCAC_CLUSTER in
 #   gilbreth)
 #     repo_dir=/depot/itap/verburgt/repos/cluster_benchmarking/
@@ -48,10 +48,11 @@ conda init
 #     ;;
 # esac
 
-echo "Activating correct conda env"
+echo "Activating correct env"
 source activate $env_dir  #Chanfed from conda to source for Anvil
+source $env_dir
 echo "Python exec is $(which python )"
-
+echo "Python version is $(python --version)"
 
 #Move to correct directory
 cd $SLURM_SUBMIT_DIR
