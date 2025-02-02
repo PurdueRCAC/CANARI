@@ -4,15 +4,12 @@ import os.path
 import socket
 import argparse
 import glob
-import sys
 import os
 import re
 import json
 import subprocess
-import heapq
 import logging
 import shlex
-import random
 import time
 from pathlib import Path
 
@@ -35,27 +32,83 @@ repo_dir:str = os.path.dirname(__file__)
 
 
 #################################  CLUSTER HEALTH CODE ##########################################
-class Node:
-    """
-    Class represents a node along with information about why its offlined.
-    Note: This class overrides the python default methods:
-        - __str__()
-        - __repr__()
-        - __lt__()
-    The first 2 cases are for convenience methods for debugging, the
-    third is used to provide a custom comparator for the purposes of sorting. 
-    The heapq library checks this method when comparing
-    non primitives against one another.
+class Cluster():
+    def __init__(self, cluster_name):
+        self.cluster_name = cluster_name
+        self.nodes = {}
+        self.create_nodes()
+   
+    def create_nodes(self):
+        sinfo=subprocess.run(shlex.split("sinfo -sa"), capture_output=True, text = True).stdout
+        for line in sinfo.strip().split("\n")[1:]:
+            partition = line.strip().split()[0]
+            nodelists = line.strip().split()[-1]
+            for nodelist in re.split(r',(?![^\[\]]*\])', nodelists):
+                nodes = decouple_nodes(nodelist)
+                for node_name in nodes:
+                    if node_name not in self.nodes.keys():
+                        self.nodes[node_name] = Node(name=node_name, 
+                                                     partitions = [partition], 
+                                                     cluster = self)
+                    else:
+                        self.nodes[node_name].add_partition(partition)
 
-    """
-    def __init__(self, name, reason, user, timestamp):
+        
+        offline_str = subprocess.run(shlex.split("sinfo -R"), capture_output=True, text = True).stdout
+        for line in offline_str.strip().split("\n")[1:]:
+            reason, user, timestamp, nodelist = line.strip().rsplit(maxsplit=3)
+            nodes = decouple_nodes(nodelist)
+            for node_name in nodes:
+                if node_name not in self.nodes.keys():
+                    self.nodes[node_name] = Node(name=node_name, 
+                                                reason = reason, 
+                                                user = user, 
+                                                timestamp=timestamp, 
+                                                cluster = self)
+                else:
+                    self.nodes[node_name].timestamp = timestamp
+                    self.nodes[node_name].reason = reason
+                    self.nodes[node_name].reason = user
+
+class Node:
+    def __init__(self, name:str, #bell-a001, a007
+                       reason:Optional[str] = None, 
+                       user:Optional[str] = None, 
+                       timestamp:Optional[str] = None,
+                       cluster:Optional[Cluster] = None,
+                       partitions:Optional[list[str]] = None
+                       ):
         """
         Initializes a node with fields from sinfo.
         """
-        self.name = name
-        self.reason = reason
-        self.user = user
-        self.timestamp = timestamp
+        self.name = name #Name of node
+        self.reason = reason #Reason for being offline
+        self.user = user #User who took it being offline
+        self.timestamp = timestamp #timestamp
+
+        self.cluster = cluster
+        self.partitions = partitions if partitions is not None else []
+
+
+    @property
+    def nodetype(self) -> str:
+        '''Takes a host ("bell-a135", "a076") and returns the nodetype ('a')'''
+        match = re.search(r'(?:-|\b)(\w)\d', self.name) #type:ignore
+        if match:
+            return match.group(1)
+        else:
+            raise RuntimeError("Unable to extract node from host")
+        
+    def add_partition(self, partition):
+        if partition not in self.partitions:
+            self.partitions.append(partition)
+
+    @property
+    def available(self):
+        if self.reason is None:
+            return True
+        else:
+            return False
 
     def get_name(self):
         """
@@ -67,7 +120,8 @@ class Node:
         """
         Returns the timestamp as a Datetime Object.
         """
-        return datetime.strptime(self.timestamp, '%Y-%m-%dT%H:%M:%S')
+        if self.timestamp is not None:
+            return datetime.strptime(self.timestamp, '%Y-%m-%dT%H:%M:%S')
 
     def __str__(self):
         """
@@ -90,6 +144,7 @@ class Node:
         Overridden comparator allowing the use of sort on a list of nodes.
         """
         return self.timestamp < other.timestamp
+
 
 
 def decouple_nodes(node_name:str, debug=False) -> list:
@@ -211,19 +266,29 @@ def get_last_healthcheck(filepath='/depot/itap/verburgt/repos/cluster_health/clu
 
 ################################# CLUSTER_BENCHMARKING CODE ##########################################
 
-def get_all_nodes(partition = "testpbs") -> list[str]:
-    output, _ = run_bash_command(f'sinfo -sa | grep {partition} | tr -s " "| cut -d " " -f5')
-    # output looks like:  'bell-a[000-479],bell-b[000-007,011]\n'
+def get_all_nodes(partition:Union[str, list[str]] = "testpbs") -> list[str]:
 
-    #split on commas not in brackets
-    coupled_nnodes = re.split(r',\s*(?![^\[]*\])', output.strip()) #Should be cluster agnostic.
+    '''Using a partition (or list of partitions) from slurm, a list of all backend nodes in the partition(s)
+    is returned'''
+
+    if isinstance(partition, str): #Convert single partitions ot a one element list
+        partition = [partition]
+
     decoupled_nodes = []
-    for coupled_node in coupled_nnodes:
-        single_nodes = decouple_nodes(coupled_node)
-        decoupled_nodes.extend(single_nodes)
+    for ptn in partition:  #For each provided partition
+        output, _ = run_bash_command(f'sinfo -sa | grep {ptn} | tr -s " "| cut -d " " -f5')
+        # output looks like:  'bell-a[000-479],bell-b[000-007,011]\n'
 
+        #split on commas not in brackets
+        coupled_nnodes = re.split(r',\s*(?![^\[]*\])', output.strip()) #Should be cluster agnostic.
+        for coupled_node in coupled_nnodes:
+            single_nodes = decouple_nodes(coupled_node)
+            decoupled_nodes.extend(single_nodes)
+
+    decoupled_nodes = sorted(list(set(decoupled_nodes)))
     # decoupled nodes looks like ['bell-a000','bell-a001','bell-a002', 'bell-a003', ..., 'bell-b007','bell-b011']
     return decoupled_nodes
+
 
 def run_bash_command(command, return_error = False):
     """
@@ -285,7 +350,7 @@ def submit_slurm(subfile:str,
                  export_vars:Optional[list] = None, 
                  gpus:Optional[int] = None,
                  account:Optional[str] = None,
-                 partition:Optional[str] = None,
+                 partition:Optional[Union[str,list[str]]] = None,
                  constraint:Optional[str] = None,
                  return_command = False) -> Union[int, str]:
         '''Submits a slurm job and returns the Job ID'''
@@ -303,6 +368,8 @@ def submit_slurm(subfile:str,
         if account is not None:
             command += f"--account={account} "
         if partition is not None:
+            if isinstance(partition, list):
+                partition = ",".join(partition)
             command += f"--partition={partition} "
         if constraint is not None:
             command += f"--constraint={constraint.upper()} "
@@ -334,7 +401,7 @@ def get_submission_script(application:str,
         case "hpl":
             submission_script = os.path.join(benchmarking_apps_path,cluster,"hpl",device,"submit","node_type",node_type,"submit.sh" )
         case "stream":
-            submission_script = os.path.join(benchmarking_apps_path,cluster,"stream", "submit", "submit.sh" )
+            submission_script = os.path.join(benchmarking_apps_path,cluster,"stream", device, "submit", "node_type", node_type,  "submit.sh" )
             # submission_script = os.path.join(root_dir,cluster,"stream", "submit","node_type",node_type,"submit.sh" )
         case _:
             raise NotImplementedError(f"application must be 'hpl' or 'stream'. Given value is '{application}'")
@@ -371,13 +438,17 @@ def submit_benchmarking_pair(application:str,
                              benchmarking_apps_path = os.path.join(repo_dir, "benchmarking_apps"),
                              node_type:Optional[str] = None,
                              account:Optional[str] = None,
-                             partition:Optional[str] = None,
+                             partition:Optional[Union[str,list[str]]] = None,
                              flag_job:Optional[bool] = False, 
-                             gpu_required:bool = False) -> None:
+                             gpu_required:bool = False,
+                             dbupdate_partition:Optional[Union[str,list[str]]] = None) -> None:
 
     timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S") #TODO Remove! "Update_db" will pull start time from sacct
     uuid = uuid4()
     #Submit Benchmarking script
+
+    if not dbupdate_partition:
+        dbupdate_partition = partition
 
     if node_type is None:
         #If Node type is None, the host MUST be set (so we can get the node from it)
@@ -423,7 +494,7 @@ def submit_benchmarking_pair(application:str,
                                        outfile= logging_outfile,  
                                        gpus=required_gpus, 
                                        account=account, 
-                                       partition=partition, 
+                                       partition=dbupdate_partition, 
                                        return_command = True,
                                        dependent_job="JOBID_PLACEHOLDER")
 
@@ -459,7 +530,7 @@ def submit_benchmarking_pair(application:str,
         logging_outfile = os.path.join(working_dir, f'dbupdate_{timestamp}_{cluster}_{application}_{uuid}')
         logging_jobid = submit_slurm(database_update_script, outfile= logging_outfile, 
                                     dependent_job=benchmarking_jobid, gpus=required_gpus, 
-                                    account=account, partition=partition)
+                                    account=account, partition=dbupdate_partition)
         logging.debug(f"Logging Job ID is {logging_jobid}. Writing to {logging_outfile}")
 
 
@@ -547,7 +618,7 @@ def main():
 
     parser.add_argument('--res', metavar='reservation_name', type=str,
             help='Used when launching jobs under a maintenance for which a reservation has been created.\n')
-    parser.add_argument('--process', metavar='process', type=str, choices=['cpu', 'gpu'], default = "cpu",
+    parser.add_argument('--device', metavar='device', type=str, choices=['cpu', 'gpu'], default = None,
             help='Used to set whether the CPU is used or the GPU.')
     parser.add_argument("-l", '--log_level', type=str, 
             choices=['debug', 'info', "warning", "error", "critical"], default = "warning", help='Set the logging level')
@@ -586,14 +657,14 @@ def main():
     except AssertionError as e:
         raise Exception("Either args.hosts or args.num_nodes must be set for benchmarking, or health_log for cluster health checking")
 
-
+    #Pull from the JSON file
     cluster_data = get_cluster_data(cluster=cluster)
     primary_node = cluster_data["primary_node"]
     database_login_file = cluster_data["database_login_file"]
     nodes = cluster_data["nodes"]
-    device  = nodes[primary_node]["devices"][0] #TODO Deal with nodes with both CPU and GPU
     account = cluster_data["account"]
     partition = cluster_data["partition"]
+    dbupdate_partition = cluster_data["dbupdate_partition"]
     gpu_required = cluster_data["gpu_required"]
     benchmarking_apps_path = cluster_data["benchmarking_apps_path"] #Path to where submission files are located
     health_data_dir = cluster_data["health_data_dir"]
@@ -618,7 +689,17 @@ def main():
                                          default_node = primary_node,
                                          weighted = args.no_weight) #Returns a dictionary of node_type:number of nodes to submit
         
+
         for node_type, num in  node_split.items():
+            node_partition = nodes[node_type]["partition"]
+            node_devices = nodes[node_type]["devices"]
+            if args.device is not None:
+                if args.devices not in node_devices:
+                    logging.warning("Requested Device not available for this node type!")
+                device = args.devices
+            else:
+                device = node_devices[0]
+
             for _ in range(num):
                 for app in health_check_apps:   #  ["stream"]: #
                     submit_benchmarking_pair(application = app, 
@@ -627,12 +708,13 @@ def main():
                                             database_login_file=database_login_file, 
                                             node_type = node_type, 
                                             account=account,
-                                            partition=partition, 
+                                            partition=node_partition, 
                                             benchmarking_apps_path = benchmarking_apps_path, 
                                             working_dir = working_dir, 
                                             flag_job = args.flag_job, 
                                             gpu_required = gpu_required, 
-                                            env_dir = env_dir)
+                                            env_dir = env_dir, 
+                                            dbupdate_partition = dbupdate_partition)
         
     elif args.hosts:
         if args.hosts[0] == "all":
@@ -640,6 +722,15 @@ def main():
             args.hosts = available_nodes
         for app in health_check_apps:
             for host in args.hosts:
+                node_partition = nodes[get_nodetype_from_host(host)]["partition"]
+                node_devices = nodes[get_nodetype_from_host(host)]["devices"]
+                if args.device is not None:
+                    if args.devices not in node_devices:
+                        logging.warning("Requested Device not available for this node type!")
+                    device = args.devices
+                else:
+                    device = node_devices[0]
+
                 submit_benchmarking_pair(application = app, 
                                             host = host,
                                             device = device,

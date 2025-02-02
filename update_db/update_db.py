@@ -8,7 +8,7 @@ import shlex
 from typing import Union, Optional
 import logging
 import os
-
+import re
 from contextlib import contextmanager
 from psycopg2 import OperationalError
 import sqlite3
@@ -42,7 +42,7 @@ def gflops_from_hpl(hpl_file:str, permissive:bool = True) -> Union[float, None]:
         lines = f.readlines()
         for line_num, line in enumerate(lines):
             # Detecting result line
-            if 'T/V                N    NB     P     Q               Time                 Gflops' in line:
+            if re.search(r'T/V\s+N\s+NB\s+P\s+Q\s+Time\s+Gflops', line):
                 gflops = float(lines[line_num+2].split()[6])
     if (gflops is not None) or permissive:
         return gflops

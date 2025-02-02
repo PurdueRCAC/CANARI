@@ -1,11 +1,11 @@
 {
-    "bell":{"nodes":{"a":{"devices":["cpu"], "count":480},
-                     "b":{"devices":["cpu"], "count":8},
-                     "g":{"devices":["cpu", "gpu"], "count":8}
+    "bell":{"nodes":{"a":{"devices":["cpu"], "count":480, "partition":"testpbs"},
+                     "b":{"devices":["cpu"], "count":8, "partition":"testpbs"},
+                     "g":{"devices":["cpu", "gpu"], "count":8, "partition":"testpbs"}
                     },
             "primary_node":"a", 
             "database_login_file":"/depot/itap/verburgt/repos/cluster_benchmarking/db_credentials.json", 
-            "benchmarking_apps_path":"/depot/itap/verburgt/repos/cluster_benchmarking/benchmarking_apps", 
+            "benchmarking_apps_path":"/depot/itap/benchmarking_apps", 
             "slack_token_path": "/depot/itap/verburgt/repos/cluster_benchmarking/tokens/.slack/token", 
             "health_data_dir":"/depot/itap/verburgt/repos/cluster_benchmarking/cluster_health_data/bell",
             "working_dir":"/scratch/bell/verburgt/benchmarking_results",
@@ -13,17 +13,18 @@
             "name_scheme":"old",
             "account":"testpbs", 
             "partition":"testpbs",
+            "dbupdate_partition":"testpbs",
             "gpu_required":false
         },
 
-    "negishi":{"nodes":{"a":{"devices":["cpu"], "count":450},
-                        "b":{"devices":["cpu"], "count":5},
-                        "c":{"devices":["cpu"], "count":15},
-                        "g":{"devices":["cpu", "gpu"], "count":5}
+    "negishi":{"nodes":{"a":{"devices":["cpu"], "count":450, "partition":"testpbs"},
+                        "b":{"devices":["cpu"], "count":5, "partition":"testpbs"},
+                        "c":{"devices":["cpu"], "count":15, "partition":"testpbs"},
+                        "g":{"devices":["cpu", "gpu"], "count":5, "partition":"testpbs"}
                     },
             "primary_node":"a", 
             "database_login_file":"/depot/itap/verburgt/repos/cluster_benchmarking/db_credentials.json", 
-            "benchmarking_apps_path":"/depot/itap/verburgt/repos/cluster_benchmarking/benchmarking_apps", 
+            "benchmarking_apps_path":"/depot/itap/benchmarking_apps", 
             "slack_token_path": "/depot/itap/verburgt/repos/cluster_benchmarking/tokens/.slack/token", 
             "health_data_dir":"/depot/itap/verburgt/repos/cluster_benchmarking/cluster_health_data/negishi",
             "working_dir":"/scratch/negishi/verburgt/benchmarking_results",
@@ -31,12 +32,13 @@
             "name_scheme":"new",
             "account":"testpbs", 
             "partition":"testpbs",
+            "dbupdate_partition":"testpbs",
             "gpu_required":false
         },
 
-    "gilbreth":{"nodes":{"g":{"devices":["gpu"], "count":11},
-                         "i":{"devices":["gpu"], "count":4},
-                         "k":{"devices":["gpu"], "count":51}
+    "gilbreth":{"nodes":{"g":{"devices":["gpu"], "count":11, "partition":"testpbs"},
+                         "i":{"devices":["gpu"], "count":4,"partition":"testpbs"},
+                         "k":{"devices":["gpu"], "count":51,"partition":"testpbs"}
                         },
             "primary_node":"k", 
             "database_login_file":"/depot/itap/verburgt/repos/cluster_benchmarking/db_credentials.json", 
@@ -48,11 +50,12 @@
             "name_scheme":"old",
             "account":"testpbs", 
             "partition":"testpbs",
+            "dbupdate_partition":"testpbs",
             "gpu_required":true
         },
-    "anvil":{"nodes":{"a":{"devices":["cpu"], "count":1000},
-                      "b":{"devices":["cpu"], "count":31},
-                      "g":{"devices":["gpu"], "count":15}
+    "anvil":{"nodes":{"a":{"devices":["cpu"], "count":1000, "partition":"standard"},
+                      "b":{"devices":["cpu"], "count":31, "partition":"standard"},
+                      "g":{"devices":["gpu"], "count":15, "partition":"standard"}
                     },
             "primary_node":"a", 
             "database_login_file":"/home/x-jverburgt/CANARI/db_credentials.json", 
@@ -64,22 +67,25 @@
             "name_scheme":"new",
             "account":"asc170016",
             "partition":"standard",
+            "dbupdate_partition":"standard",
             "gpu_required":false
         },
-    "gautschi":{"nodes":{"a":{"devices":["cpu"], "count":337},
-                         "h":{"devices":["cpu"], "count":19},
-                         "g":{"devices":["gpu"], "count":5}
+    "gautschi":{"nodes":{"a":{"devices":["cpu"], "count":338, "partition":"cpu"},
+                         "b":{"devices":["cpu"], "count":6, "partition":"highmem"},
+                         "h":{"devices":["gpu"], "count":20, "partition":"ai"},
+                         "g":{"devices":["gpu"], "count":6, "partition":"smallgpu"}
                         },
             "primary_node":"a", 
             "database_login_file":"/depot/itap/verburgt/repos/cluster_benchmarking/db_credentials.json", 
-            "benchmarking_apps_path":"/depot/itap/verburgt/repos/cluster_benchmarking/benchmarking_apps", 
+            "benchmarking_apps_path":"/depot/itap/benchmarking_apps", 
             "slack_token_path": "/depot/itap/verburgt/repos/cluster_benchmarking/tokens/.slack/token", 
             "health_data_dir":"/depot/itap/verburgt/repos/cluster_benchmarking/cluster_health_data/negishi",
             "working_dir":"/scratch/gautschi/verburgt/benchmarking_results",
             "env_dir":"/depot/itap/verburgt/envs/venv/canari/bin/activate",
             "name_scheme":"new",
             "account":"rcac", 
-            "partition":"cpu",
+            "partition":["ai", "cpu", "highmem", "smallgpu", "profiling"],
+            "dbupdate_partition":"cpu",
             "gpu_required":false
         }
 }
