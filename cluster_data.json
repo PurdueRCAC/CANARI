@@ -79,13 +79,33 @@
             "database_login_file":"/depot/itap/verburgt/repos/cluster_benchmarking/db_credentials.json", 
             "benchmarking_apps_path":"/depot/itap/benchmarking_apps", 
             "slack_token_path": "/depot/itap/verburgt/repos/cluster_benchmarking/tokens/.slack/token", 
-            "health_data_dir":"/depot/itap/verburgt/repos/cluster_benchmarking/cluster_health_data/negishi",
+            "health_data_dir":"/depot/itap/verburgt/repos/cluster_benchmarking/cluster_health_data/gautschi",
             "working_dir":"/scratch/gautschi/verburgt/benchmarking_results",
             "env_dir":"/depot/itap/verburgt/envs/venv/canari/bin/activate",
             "name_scheme":"new",
             "account":"rcac", 
-            "partition":["ai", "cpu", "highmem", "smallgpu", "profiling"],
+            "partition":"gautschi-nodes",
             "dbupdate_partition":"cpu",
             "gpu_required":false
-        }
+        },
+    "scholar":{"nodes":{"a":{"devices":["cpu"], "count":4, "partition":"testpbs"},
+                        "b":{"devices":["cpu"], "count":3, "partition":"testpbs"},
+                        "g":{"devices":["cpu"], "count":4, "partition":"testpbs"},
+                        "h":{"devices":["cpu"], "count":2, "partition":"testpbs"},
+                        "j":{"devices":["cpu"], "count":4, "partition":"testpbs"}
+                    },
+"primary_node":"a", 
+"database_login_file":"/depot/itap/verburgt/repos/cluster_benchmarking/db_credentials.json", 
+"benchmarking_apps_path":"/depot/itap/benchmarking_apps", 
+"slack_token_path": "/depot/itap/verburgt/repos/cluster_benchmarking/tokens/.slack/token", 
+"health_data_dir":"/depot/itap/verburgt/repos/cluster_benchmarking/cluster_health_data/scholar",
+"working_dir":"/scratch/scholar/verburgt/benchmarking_results",
+"env_dir":"/depot/itap/verburgt/envs/venv/canari/bin/activate",
+"name_scheme":"old",
+"account":"rcac", 
+"partition":"testpbs",
+"dbupdate_partition":"cpu",
+"gpu_required":false
+}
+
 }

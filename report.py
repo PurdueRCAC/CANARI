@@ -124,14 +124,14 @@ def get_summary(debug=False, token_path="/home/rderue/.slack/token",
     down and why they were marked down. This function's intended use case is to be
     ran every weekday for an end of day report.
     """
-    total_nodes=get_total_nodes(partition = partition)
-    offline_nodes=get_offline_node_objs()
+    total_nodes:int=get_total_nodes(partition = partition)
+    offline_nodes:list=get_offline_node_objs()
     percent_offline=100*(len(offline_nodes) / float(total_nodes))
     response = send_slack_message("{:.2f}% of {} nodes are offline ({} nodes).".format(percent_offline, cluster.capitalize(), len(offline_nodes)),
                                   debug=debug, token_path = token_path, channel_id = slack_channel_id)
     message=""
     for node in get_offline_node_objs():  #Returns list of "Node" objects
-        message += "{} has been offline for {} days for reported reason: {}.".format(node.name, (datetime.now() - node.get_datetime()).days, node.reason) + "\n"
+        message += "{} has been offline for {} days for reported reason: {}.".format(node.name, (datetime.now() - node.get_datetime()).days, node.reason) + "\n" # type: ignore
     with tempfile.NamedTemporaryFile(mode="w+") as tmp:
         tmp.write(message)
         tmp.read()
@@ -149,8 +149,8 @@ def healthcheck(critical_percent=.025, debug=False,  token_path="/home/rderue/.s
     offlined nodes and those logged in the previous healthcheck are more than
     critical_percent different than one another.
     """
-    total_nodes=get_total_nodes(partition = partition)
-    offline_nodes=get_offline_node_objs()
+    total_nodes:int = get_total_nodes(partition = partition)
+    offline_nodes:list = get_offline_node_objs()
     last_offline_nodes=get_last_healthcheck(filepath = health_dir)
     # If last healthcheck ran more than 90 minutes ago, then the cronjob
     # probably died. Skip reporting the stale data.

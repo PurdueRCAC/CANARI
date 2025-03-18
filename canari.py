@@ -151,33 +151,31 @@ def decouple_nodes(node_name:str, debug=False) -> list:
     """
     Function reformats nodelists formatted as a[xxx-yyy], a[xxx,xxy-yyz],
     or a[xxx,xxy-yyz],c[www,wwv,vv-u] to individually list them instead.
-
-    node_name: str 
-        Examples:   'a001' --> ['a001']
-                    'c[001,005,010-012]' --> ['c001', 'c005', 'c010', 'c011', 'c012']
-                    'bell-a299' --> ['bell-a299']
-                    'bell-a[223,321]' --> ['bell-a223', 'bell-a321']
-                    'bell-a[220,225-229]' --> ['bell-a220', 'bell-a225', 'bell-a226', 'bell-a227', 'bell-a228', 'bell-a229']
+    
+    Examples:
+        'a001' --> ['a001']
+        'c[001,005,010-012]' --> ['c001', 'c005', 'c010', 'c011', 'c012']
+        'bell-a299' --> ['bell-a299']
+        'bell-a[223,321]' --> ['bell-a223', 'bell-a321']
+        'bell-a[220,225-229]' --> ['bell-a220', 'bell-a225', 'bell-a226', 'bell-a227', 'bell-a228', 'bell-a229']
+        'a[000-003,022],g[000,002-004],h[000-002],i[000-002],j003'--> ['a000','a001','a002','a003','a022','g000','g002','g003','g004','h000','h001','h002','i000','i001','i002','j003']
     """
-    if node_name.find('[') == -1: #Just a single node - does not need recoupling
-        return node_name.split(",") #Something like bell-a117,bell-b004 is a possibility
-    decoupled_nodes=[]
-    node_range_regex=re.compile(r"\[[\d\,\-]+\]")
-    bracket_idxs=re.finditer(node_range_regex, node_name)
-    for bracket_idx in bracket_idxs:
-        node_type= node_name[:bracket_idx.start()] #node_name[bracket_idx.start() - 1]
-        node_idxs=node_name[bracket_idx.start() + 1 : bracket_idx.end() - 1]
-        node_ranges=node_idxs.split(",")
-        #At this point a string like a[xxx,xxy-yyz] should be a python list with elements xxx, xxy-xxz
-        for node_range in node_ranges:
-            regexp = re.compile(r'[0-9]-[0-9]')
-            if not regexp.search(node_range): #If it's a single node add it back
-                for node_idx in node_range.split(","):
-                    decoupled_nodes.append(node_type + node_idx)
-            else:
-                limits=node_range.split("-")
-                for idx in range(int(limits[0]),int(limits[1])+1):
-                    decoupled_nodes.append(node_type + str(idx).zfill(3))
+    groups = re.split(r',(?![^\[]*\])', node_name)#split on commas not inside brackets.
+    decoupled_nodes = []
+    for group in groups:
+        if '[' not in group: #Just a single node
+            decoupled_nodes.append(group)
+        else:
+            prefix, inside = group.split('[', 1) #Prefix for this group "a", "bell-a"
+            tokens = inside.rstrip(']').split(',') #Each comma seperated value within a bracket
+            for token in tokens:
+                if '-' in token: #This is a range (like 005-010)
+                    start, end = token.split('-')
+                    width = len(start) #Will basically always be three
+                    for i in range(int(start), int(end) + 1):
+                        decoupled_nodes.append(prefix + str(i).zfill(width))
+                else: #NOT a range - just append single token
+                    decoupled_nodes.append(prefix + token)
     return decoupled_nodes
 
 def get_offline_node_objs() -> list[Node]:
